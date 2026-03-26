@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Health Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            font-family: 'Inter', sans-serif; 
+            background-color: #121212; color: #e0e0e0;
+            display: flex; justify-content: center; align-items: center;
+        }
+        
+        #intake-form {
+            background-color: #1e1e1e; padding: 40px; border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333;
+            display: flex; flex-direction: column; gap: 20px; width: 350px;
+        }
+        #intake-form h2 { margin: 0; text-align: center; color: #ffffff; }
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        .input-group label { font-size: 0.9em; color: #aaa; }
+        .input-group input, .input-group select {
+            background-color: #2d2d2d; color: white; border: 1px solid #444;
+            padding: 12px; border-radius: 8px; outline: none; font-size: 1em;
+        }
+        .input-group input:focus, .input-group select:focus { border-color: #0066cc; }
+        .start-btn {
+            background: #0066cc; color: white; border: none; padding: 15px;
+            border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1em;
+            margin-top: 10px; transition: background 0.2s;
+        }
+        .start-btn:hover { background: #0056b3; }
+
+        #chat-window { 
+            display: none; 
+            flex-direction: column; height: 100vh; width: 100vw;
+        }
+        #header { 
+            background-color: #1e1e1e; padding: 20px; text-align: center; 
+            font-weight: 600; font-size: 1.3em; border-bottom: 1px solid #333; 
+        }
+        #messages { 
+            flex: 1; padding: 30px 10%; overflow-y: auto; 
+            display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth;
+        }
+        .msg { padding: 15px 20px; border-radius: 18px; max-width: 75%; line-height: 1.6; }
+        .user { align-self: flex-end; background: #0066cc; color: #ffffff; border-bottom-right-radius: 4px; }
+        .bot { align-self: flex-start; background: #242424; color: #e0e0e0; border: 1px solid #333; border-bottom-left-radius: 4px; }
+        .bot p { margin: 0 0 10px 0; } .bot p:last-child { margin: 0; }
+        .bot strong { color: #ffffff; }
+        #input-container { background-color: #1e1e1e; padding: 20px 10%; border-top: 1px solid #333; }
+        #input-area { display: flex; gap: 15px; align-items: center; max-width: 1200px; margin: 0 auto; }
+        #chat-input { flex: 1; background-color: #2d2d2d; color: #ffffff; border: 1px solid #444; padding: 16px 25px; border-radius: 30px; outline: none; font-size: 1em; }
+        .send-btn { background: #0066cc; color: white; border: none; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; font-size: 1.2em; }
+        .typing-indicator { font-style: italic; color: #888; font-size: 0.9em; display: none; margin-left: 10px; padding-bottom: 10px;}
+    </style>
+</head>
+<body>
+
+<div id="intake-form">
+    <h2>Patient Profile</h2>
+    
+    <div class="input-group">
+        <label>Age</label>
+        <input type="number" id="user-age" placeholder="e.g. 25" required>
+    </div>
+    
+    <div class="input-group">
+        <label>Weight (kg)</label>
+        <input type="number" id="user-weight" placeholder="e.g. 70" required>
+    </div>
+
+    <div class="input-group">
+        <label>Biological Sex</label>
+        <select id="user-sex">
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+        </select>
+    </div>
+
+    <button class="start-btn" onclick="startConsultation()">Start Consultation</button>
+</div>
+
+<div id="chat-window">
+    <div id="header">AI Health Assistant</div>
+    <div id="messages">
+        <div class="msg bot">Hello! I have received your profile. How are you feeling today? <br><br><em style="color: #aaa; font-size: 0.9em;">Note: Always consult a licensed doctor for professional medical advice.</em></div>
+    </div>
+    <div id="input-container">
+        <div id="typing" class="typing-indicator">AI is thinking...</div>
+        <div id="input-area">
+            <input type="text" id="chat-input" placeholder="Describe your symptoms..." onkeypress="handleKeyPress(event)">
+            <button class="send-btn" onclick="sendToBackend()">➤</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. Check if the browser already remembers this patient
+    let patientData = JSON.parse(localStorage.getItem('savedPatientProfile'));
+
+    // If they have visited before, skip the form automatically
+    window.onload = function() {
+        if (patientData) {
+            document.getElementById('intake-form').style.display = 'none';
+            document.getElementById('chat-window').style.display = 'flex';
+        }
+    };
+
+    function startConsultation() {
+        const age = document.getElementById('user-age').value;
+        const weight = document.getElementById('user-weight').value;
+        const sex = document.getElementById('user-sex').value;
+
+        if (!age || !weight) {
+            alert("Please fill in your Age and Weight to continue.");
+            return;
+        }
+
+        // 2. Save the data to the browser's permanent memory
+        patientData = { age: age, weight: weight, sex: sex };
+        localStorage.setItem('savedPatientProfile', JSON.stringify(patientData));
+
+        document.getElementById('intake-form').style.display = 'none';
+        document.getElementById('chat-window').style.display = 'flex';
+    }
+
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') {
+            sendToBackend();
+        }
+    }
+
+    async function sendToBackend() {
+        const input = document.getElementById('chat-input');
+        const messages = document.getElementById('messages');
+        const typingIndicator = document.getElementById('typing');
+        const text = input.value.trim();
+        
+        if (!text) return;
+
+        messages.innerHTML += `<div class="msg user">${text}</div>`;
+        input.value = '';
+        messages.scrollTop = messages.scrollHeight;
+        
+        typingIndicator.style.display = 'block';
+
+        try {
+            // 3. Send both the message AND the saved profile to Python
+            const response = await fetch('http://127.0.0.1:8000/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: text, patient_profile: patientData }) 
+            });
+            const data = await response.json();
+            
+            typingIndicator.style.display = 'none';
+            const formattedReply = marked.parse(data.reply);
+            messages.innerHTML += `<div class="msg bot">${formattedReply}</div>`;
+            messages.scrollTop = messages.scrollHeight;
+            
+        } catch (e) {
+            typingIndicator.style.display = 'none';
+            messages.innerHTML += `<div class="msg bot" style="color:#ff6b6b; font-weight:bold;">Error: Backend disconnected. Is your Python server running?</div>`;
+            messages.scrollTop = messages.scrollHeight;
+        }
+    }
+</script>
+
+</body>
+</html>
