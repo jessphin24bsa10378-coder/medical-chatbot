@@ -98,6 +98,7 @@
 </div>
 
 <script>
+    // Initialize patientData from localStorage if it exists
     let patientData = JSON.parse(localStorage.getItem('savedPatientProfile'));
 
     window.onload = function() {
@@ -112,8 +113,12 @@
         const weight = document.getElementById('user-weight').value;
         const sex = document.getElementById('user-sex').value;
         if (!age || !weight) { alert("Please fill in your Age and Weight."); return; }
+        
+        // Save profile locally
         patientData = { age, weight, sex };
         localStorage.setItem('savedPatientProfile', JSON.stringify(patientData));
+        
+        // Switch UI
         document.getElementById('intake-form').style.display = 'none';
         document.getElementById('chat-window').style.display = 'flex';
     }
@@ -132,26 +137,36 @@
         const text = input.value.trim();
         if (!text) return;
 
+        // Show user message in UI
         messages.innerHTML += `<div class="msg user">${text}</div>`;
         input.value = '';
         messages.scrollTop = messages.scrollHeight;
         typingIndicator.style.display = 'block';
 
         try {
-            // UPDATED TO YOUR RENDER URL
+            // CALLING YOUR LIVE RENDER BACKEND
             const response = await fetch('https://medical-chatbot-dkz1.onrender.com/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, patient_profile: patientData }) 
+                body: JSON.stringify({ 
+                    message: text, 
+                    patient_profile: patientData  // This sends age/weight/sex to the AI
+                }) 
             });
+
+            if (!response.ok) throw new Error("Server asleep");
+
             const data = await response.json();
             typingIndicator.style.display = 'none';
+            
+            // Format AI response with Markdown (bold/lists)
             const formattedReply = marked.parse(data.reply);
             messages.innerHTML += `<div class="msg bot">${formattedReply}</div>`;
             messages.scrollTop = messages.scrollHeight;
         } catch (e) {
             typingIndicator.style.display = 'none';
-            messages.innerHTML += `<div class="msg bot" style="color:#ff6b6b; font-weight:bold;">The server is waking up... Please wait 30 seconds and try again.</div>`;
+            messages.innerHTML += `<div class="msg bot" style="color:#ff6b6b;"><strong>The server is waking up...</strong><br>Please wait 30 seconds and send your message again. (Free servers go to sleep when not in use!)</div>`;
+            messages.scrollTop = messages.scrollHeight;
         }
     }
 </script>
